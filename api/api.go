@@ -10,6 +10,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
+	"github.com/go-chi/cors"
 )
 
 type Body struct {
@@ -27,6 +28,17 @@ const version = "v1"
 func NewHandler(db map[string]string) http.Handler {
 	route := chi.NewMux()
 
+	// Configure CORS
+	corsMiddleware := cors.New(cors.Options{
+		AllowedOrigins:   []string{"*"},
+		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
+		AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type", "X-CSRF-Token"},
+		ExposedHeaders:   []string{"Link"},
+		AllowCredentials: true,
+		MaxAge:           300,
+	})
+
+	route.Use(corsMiddleware.Handler)
 	route.Use(middleware.Recoverer)
 	route.Use(middleware.RequestID)
 	route.Use(middleware.Logger)
