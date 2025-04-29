@@ -1,7 +1,6 @@
 package api
 
 import (
-	"crypto/md5"
 	"encoding/json"
 	"fmt"
 	"log/slog"
@@ -23,6 +22,7 @@ type Response struct {
 }
 
 const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+const version = "v1"
 
 func NewHandler(db map[string]string) http.Handler {
 	route := chi.NewMux()
@@ -39,8 +39,8 @@ func NewHandler(db map[string]string) http.Handler {
 	})
 
 	route.Group(func(r chi.Router) {
-		r.Route("/v1", func(r chi.Router) {
-			r.Get("/create", CreateLink(db))
+		r.Route(fmt.Sprintf("/%s", version), func(r chi.Router) {
+			r.Post("/create", CreateLink(db))
 			r.Get("/{code}", GetLink(db))
 		})
 	})
@@ -53,6 +53,7 @@ func CreateLink(db map[string]string) http.HandlerFunc {
 		var body Body
 
 		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			slog.Error(err.Error(), "error", err)
 			SendJson(w, Response{Error: err.Error()}, http.StatusUnprocessableEntity)
 			return
 		}
@@ -64,21 +65,17 @@ func CreateLink(db map[string]string) http.HandlerFunc {
 			return
 		}
 
-		code := fmt.Sprintf("%x", md5.Sum([]byte(body.URL)))[:6]
+		code := generateCode(db)
 
 		db[code] = body.URL
 
-		SendJson(w, Response{Data: map[string]string{"code": code}}, http.StatusCreated)
+		url := fmt.Sprintf("%s/%s/%s", r.Host, version, code)
 
-		code = generateCode()
-
-		db[code] = body.URL
-
-		SendJson(w, Response{Data: code}, http.StatusCreated)
+		SendJson(w, Response{Data: url}, http.StatusCreated)
 	}
 }
 
-func generateCode() string {
+func generateCode(db map[string]string) string {
 	lenghtBytes := 16
 	byts := make([]byte, lenghtBytes)
 
@@ -86,11 +83,30 @@ func generateCode() string {
 		byts[i] = charset[rand.IntN(len(charset))]
 	}
 
+	if _, ok := db[string(byts)]; ok {
+		return generateCode(db)
+	}
+
 	return string(byts)
 }
 
 func GetLink(db map[string]string) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		code := chi.URLParam(r, "code")
+
+		if code == "" {
+			SendJson(w, Response{Error: "code is required"}, http.StatusBadRequest)
+			return
+		}
+
+		url, ok := db[code]
+
+		if !ok {
+			SendJson(w, Response{Error: "code not found"}, http.StatusNotFound)
+			return
+		}
+
+		SendJson(w, Response{Data: url}, http.StatusOK)
 
 	}
 }
