@@ -16,8 +16,10 @@ A simple and efficient URL shortener service built with Go. This service allows 
 1. Clone the repository:
 
 ```bash
-git clone https://github.com/yourusername/shortUrl.git
-cd shortUrl
+mkdir short-url
+cd short-url
+
+git clone https://github.com/alvarobianor/short-url.git
 ```
 
 2. Install dependencies:
