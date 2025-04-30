@@ -54,6 +54,7 @@ func NewHandler(db map[string]string) http.Handler {
 		r.Route(fmt.Sprintf("/%s", version), func(r chi.Router) {
 			r.Post("/create", CreateLink(db))
 			r.Get("/{code}", GetLink(db))
+			r.Get("/go/{code}", Redirect(db))
 		})
 	})
 
@@ -81,7 +82,7 @@ func CreateLink(db map[string]string) http.HandlerFunc {
 
 		db[code] = body.URL
 
-		url := fmt.Sprintf("%s/%s/%s", r.Host, version, code)
+		url := fmt.Sprintf("%s/%s/go/%s", r.Host, version, code)
 
 		SendJson(w, Response{Data: url}, http.StatusCreated)
 	}
@@ -120,6 +121,24 @@ func GetLink(db map[string]string) http.HandlerFunc {
 
 		SendJson(w, Response{Data: url}, http.StatusOK)
 
+	}
+}
+func Redirect(db map[string]string) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		code := chi.URLParam(r, "code")
+		if code == "" {
+			SendJson(w, Response{Error: "code is required"}, http.StatusBadRequest)
+			return
+		}
+
+		url, ok := db[code]
+
+		if !ok {
+			SendJson(w, Response{Error: "code not found"}, http.StatusNotFound)
+			return
+		}
+
+		http.Redirect(w, r, url, http.StatusPermanentRedirect)
 	}
 }
 
